@@ -78,7 +78,7 @@ impl Utf8SliceFFI {
         len: 0,
     };
 
-    pub fn from_str(s: &str) -> Self {
+    pub const fn from_utf8(s: &str) -> Self {
         Self {
             ptr: s.as_ptr(),
             len: s.len(),
@@ -522,7 +522,7 @@ impl<'a, R: Read + Seek> OwnedStreamHost<'a, R> {
         }
 
         let disk_path = match self.disk_path_bytes {
-            Some(p) => Utf8SliceFFI::from_str(p),
+            Some(p) => Utf8SliceFFI::from_utf8(p),
             None => Utf8SliceFFI::EMPTY,
         };
 
