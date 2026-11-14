@@ -1,0 +1,12 @@
+/target/
+/.zcode/
+**/*.rs.bk
+*.pdb
+*.dSYM
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db

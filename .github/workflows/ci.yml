@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  check-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install Linux system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config \
+            build-essential \
+            libarchive-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxkbcommon-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libglib2.0-dev
+
+      - name: Cache Windows vcpkg static libarchive
+        if: runner.os == 'Windows'
+        id: vcpkg-cache
+        uses: actions/cache@v4
+        with:
+          path: C:/vcpkg_installed
+          key: vcpkg-win64-static-md-libarchive-v1
+
+      - name: Install Windows static libarchive via vcpkg
+        if: runner.os == 'Windows' && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install libarchive:x64-windows-static-md --x-install-root=C:/vcpkg_installed
+
+      - name: Export Windows vcpkg environment
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          echo "VCPKG_ROOT=C:/vcpkg_installed" >> $env:GITHUB_ENV
+          echo "LIBARCHIVE_STATIC=1" >> $env:GITHUB_ENV
+          echo "LIBARCHIVE_LIB_DIR=C:/vcpkg_installed/x64-windows-static-md/lib" >> $env:GITHUB_ENV
+          echo "LIBARCHIVE_INCLUDE_DIR=C:/vcpkg_installed/x64-windows-static-md/include" >> $env:GITHUB_ENV
+
+      - name: Cache Cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run Cargo Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Build Workspace (Release)
+        run: cargo build --workspace --release
+
+      - name: Run Workspace Tests
+        run: cargo test --workspace --release -- --nocapture
