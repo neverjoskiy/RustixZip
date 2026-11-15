@@ -389,7 +389,10 @@ impl ArchiveEngine {
     }
 
     pub fn load_plugins_from_dir(&self, dir: &Path) -> Result<usize> {
-        self.plugins.write().scan_directory(dir, false)
+        let mut reg = self.plugins.write();
+        let before = reg.plugins().len();
+        reg.scan_directory(dir, false);
+        Ok(reg.plugins().len().saturating_sub(before))
     }
 
     pub fn pool(&self) -> &BufferPool {
