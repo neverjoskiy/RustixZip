@@ -315,37 +315,25 @@ pub fn read_entry_bytes<R: Read + Seek>(
     Ok(out)
 }
 
-fn select_zip_method_and_level(options: &PackOptions) -> (CompressionMethod, Option<i64>) {
-    if options.level == 0 {
-        return (CompressionMethod::Stored, None);
-    }
-    let method_hint = options.zip_method;
-    let method = match method_hint {
-        crate::types::ZipCompressionMethod::Stored => CompressionMethod::Stored,
-        crate::types::ZipCompressionMethod::Deflate => CompressionMethod::Deflated,
-        crate::types::ZipCompressionMethod::Zstd => CompressionMethod::Zstd,
-        crate::types::ZipCompressionMethod::Bzip2 => CompressionMethod::Bzip2,
-        crate::types::ZipCompressionMethod::Lzma => CompressionMethod::Lzma,
-        crate::types::ZipCompressionMethod::Xz => CompressionMethod::Xz,
-    };
-    let level = if method == CompressionMethod::Stored {
-        None
-    } else {
-        Some(i64::from(options.level.clamp(1, 9)))
-    };
-    (method, level)
-}
-
-fn build_file_options(
+fn build_file_options<'p>(
     file_size: u64,
     mtime_secs: Option<i64>,
     unix_mode: Option<u32>,
-    options: &PackOptions,
-) -> SimpleFileOptions {
-    let (method, level) = select_zip_method_and_level(options);
+    method: ZipCompressionMethod,
+    level: u8,
+    password: Option<&'p str>,
+) -> SimpleFileOptions<'p> {
+    let (compression_method, compression_level) = match method {
+        ZipCompressionMethod::Stored => (CompressionMethod::Stored, None),
+        ZipCompressionMethod::Deflate => (CompressionMethod::Deflated, Some(i64::from(level.clamp(1, 9)))),
+        ZipCompressionMethod::Zstd => (CompressionMethod::Zstd, Some(i64::from(level.clamp(1, 22)))),
+        ZipCompressionMethod::Bzip2 => (CompressionMethod::Bzip2, Some(i64::from(level.clamp(1, 9)))),
+        ZipCompressionMethod::Lzma => (CompressionMethod::Lzma, Some(i64::from(level.clamp(1, 9)))),
+        ZipCompressionMethod::Xz => (CompressionMethod::Xz, Some(i64::from(level.clamp(1, 9)))),
+    };
     let mut fo = SimpleFileOptions::default()
-        .compression_method(method)
-        .compression_level(level)
+        .compression_method(compression_method)
+        .compression_level(compression_level)
         .large_file(file_size >= 0xFFFF_FFFF);
 
     if let Some(secs) = mtime_secs {
@@ -358,10 +346,8 @@ fn build_file_options(
             fo = fo.unix_permissions(mode);
         }
     }
-    if let Some(pw) = options.password.as_deref() {
-        if !pw.is_empty() {
-            fo = fo.with_aes_encryption(AesMode::Aes256, pw);
-        }
+    if let Some(pw) = password.filter(|s| !s.is_empty()) {
+        fo = fo.with_aes_encryption(AesMode::Aes256, pw);
     }
     fo
 }
@@ -417,7 +403,7 @@ pub fn pack_entries<W: Write + Seek>(
         let (mtime, mode) = metadata_mtime_and_mode(&meta);
 
         if meta.is_dir() {
-            let dir_opts = build_file_options(0, mtime, mode, options)
+            let dir_opts = build_file_options(0, mtime, mode, options.zip_method, options.level, options.password.as_deref())
                 .compression_method(CompressionMethod::Stored)
                 .compression_level(None);
             main_writer
@@ -481,7 +467,7 @@ pub fn pack_entries<W: Write + Seek>(
                         if let Some(p) = progress {
                             p.set_current_item(virt_name);
                         }
-                        let fo = build_file_options(info.len, info.mtime, info.mode, options);
+                        let fo = build_file_options(info.len, info.mtime, info.mode, options.zip_method, options.level, options.password.as_deref());
                         sub_writer
                             .start_file(virt_name.clone(), fo)
                             .map_err(|e| map_zip_error(e, options.password.is_some()))?;
@@ -534,7 +520,7 @@ pub fn pack_entries<W: Write + Seek>(
             if let Some(p) = progress {
                 p.set_current_item(&virt_name);
             }
-            let fo = build_file_options(info.len, info.mtime, info.mode, options);
+            let fo = build_file_options(info.len, info.mtime, info.mode, options.zip_method, options.level, options.password.as_deref());
             main_writer
                 .start_file(virt_name, fo)
                 .map_err(|e| map_zip_error(e, options.password.is_some()))?;

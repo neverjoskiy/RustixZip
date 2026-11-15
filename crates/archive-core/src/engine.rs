@@ -995,7 +995,7 @@ impl ArchiveEngine {
             .collect();
 
         let existing = self.open_path(archive_path, options.password.clone(), control)?;
-        if !existing.ArchiveFormat::WRITABLE.contains(&format) {
+        if !ArchiveFormat::WRITABLE.contains(&existing.format) {
             return Err(ArchiveError::UnsupportedFormat(format!(
                 "{} does not support modification",
                 existing.format.display_name()
