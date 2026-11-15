@@ -344,6 +344,7 @@ pub enum ZipCompressionMethod {
     Zstd,
     Bzip2,
     Lzma,
+    Xz,
 }
 
 /// Behavior when extracting over an existing filesystem entry.

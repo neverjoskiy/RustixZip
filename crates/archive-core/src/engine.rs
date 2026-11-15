@@ -297,7 +297,8 @@ impl VfsMountStack {
     pub fn navigate_up(&mut self) -> bool {
         let current = self.active().current_dir;
         if current != NodeId::ROOT {
-            if let Some(parent) = self.active().archive.vfs.node(current).parent {
+            let parent = self.active().archive.vfs.node(current).parent;
+            if !parent.is_none() {
                 self.active_mut().current_dir = parent;
                 return true;
             }
@@ -331,10 +332,11 @@ impl VfsMountStack {
             let mut cursor = layer.current_dir;
             while cursor != NodeId::ROOT {
                 chain.push(cursor);
-                match layer.archive.vfs.node(cursor).parent {
-                    Some(p) => cursor = p,
-                    None => break,
+                let parent = layer.archive.vfs.node(cursor).parent;
+                if parent.is_none() {
+                    break;
                 }
+                cursor = parent;
             }
             chain.reverse();
             for nid in chain {
@@ -371,7 +373,7 @@ impl ArchiveEngine {
         let mut registry = PluginRegistry::new();
 
         for dir in default_plugin_search_dirs() {
-            let _ = registry.load_from_dir(&dir);
+            registry.scan_directory(&dir, false);
         }
 
         Self {
@@ -387,7 +389,7 @@ impl ArchiveEngine {
     }
 
     pub fn load_plugins_from_dir(&self, dir: &Path) -> Result<usize> {
-        self.plugins.write().load_from_dir(dir)
+        self.plugins.write().scan_directory(dir, false)
     }
 
     pub fn pool(&self) -> &BufferPool {
@@ -858,7 +860,7 @@ impl ArchiveEngine {
         control: Option<&TaskControl>,
         progress: Option<&ProgressTracker>,
     ) -> Result<Vec<PathBuf>> {
-        if !options.format.is_writable() {
+        if !ArchiveFormat::WRITABLE.contains(&options.format) {
             return Err(ArchiveError::UnsupportedFormat(format!(
                 "{} is read-only",
                 options.format.display_name()
@@ -990,7 +992,7 @@ impl ArchiveEngine {
             .collect();
 
         let existing = self.open_path(archive_path, options.password.clone(), control)?;
-        if !existing.format.is_writable() {
+        if !existing.ArchiveFormat::WRITABLE.contains(&format) {
             return Err(ArchiveError::UnsupportedFormat(format!(
                 "{} does not support modification",
                 existing.format.display_name()

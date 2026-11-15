@@ -326,6 +326,7 @@ fn select_zip_method_and_level(options: &PackOptions) -> (CompressionMethod, Opt
         crate::types::ZipCompressionMethod::Zstd => CompressionMethod::Zstd,
         crate::types::ZipCompressionMethod::Bzip2 => CompressionMethod::Bzip2,
         crate::types::ZipCompressionMethod::Lzma => CompressionMethod::Lzma,
+        crate::types::ZipCompressionMethod::Xz => CompressionMethod::Xz,
     };
     let level = if method == CompressionMethod::Stored {
         None

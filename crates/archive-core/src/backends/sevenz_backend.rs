@@ -340,7 +340,7 @@ pub fn pack_entries<W: Write + Seek>(
     if level == 0 {
         methods.push(SevenZMethodConfiguration::new(SevenZMethod::COPY));
     } else {
-        let lzma_opts = LZMA2Options::with_preset(level);
+        let lzma_opts = LZMA2Options::with_preset(level as u32);
         methods.push(lzma_opts.into());
     }
     writer.set_content_methods(methods);
