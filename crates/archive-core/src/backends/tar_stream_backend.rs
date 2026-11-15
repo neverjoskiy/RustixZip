@@ -564,7 +564,7 @@ pub fn pack_entries<W: Write>(
     } else {
         options.threads.max(1)
     };
-    let level = options.level;
+    let level = options.level as u32;
 
     if options.format.is_single_file_stream() {
         let file_inputs: Vec<&PackInput> = inputs

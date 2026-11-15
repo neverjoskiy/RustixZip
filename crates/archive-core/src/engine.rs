@@ -205,7 +205,7 @@ impl VfsMountStack {
         Ok(Self {
             layers: vec![MountLayer {
                 archive,
-                current_dir: VfsTree::ROOT,
+                current_dir: NodeId::ROOT,
                 parent_virtual_path: None,
             }],
         })
@@ -215,7 +215,7 @@ impl VfsMountStack {
         Self {
             layers: vec![MountLayer {
                 archive,
-                current_dir: VfsTree::ROOT,
+                current_dir: NodeId::ROOT,
                 parent_virtual_path: None,
             }],
         }
@@ -280,7 +280,7 @@ impl VfsMountStack {
             {
                 self.layers.push(MountLayer {
                     archive: nested_archive,
-                    current_dir: VfsTree::ROOT,
+                    current_dir: NodeId::ROOT,
                     parent_virtual_path: Some(virtual_path),
                 });
                 return Ok(EnterOutcome::MountedNestedArchive);
@@ -296,7 +296,7 @@ impl VfsMountStack {
     /// Navigates to the parent folder, popping nested archive layers automatically when at root.
     pub fn navigate_up(&mut self) -> bool {
         let current = self.active().current_dir;
-        if current != VfsTree::ROOT {
+        if current != NodeId::ROOT {
             if let Some(parent) = self.active().archive.vfs.node(current).parent {
                 self.active_mut().current_dir = parent;
                 return true;
@@ -324,12 +324,12 @@ impl VfsMountStack {
             out.push(BreadcrumbSegment {
                 label: layer.archive.display_name.clone(),
                 layer_index: layer_idx,
-                node_id: VfsTree::ROOT,
+                node_id: NodeId::ROOT,
                 is_archive_boundary: true,
             });
             let mut chain = Vec::new();
             let mut cursor = layer.current_dir;
-            while cursor != VfsTree::ROOT {
+            while cursor != NodeId::ROOT {
                 chain.push(cursor);
                 match layer.archive.vfs.node(cursor).parent {
                     Some(p) => cursor = p,
