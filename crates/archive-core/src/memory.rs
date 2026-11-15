@@ -20,7 +20,7 @@ pub const CHUNK_BUF_SIZE: usize = 4 * 1024 * 1024;
 /// Computes a safe upper RAM bound (`min(512 MiB, 25% available system memory)`, at least `64 MiB`).
 pub fn compute_optimal_memory_budget_bytes() -> usize {
     let mut sys = System::new_with_specifics(
-        RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()),
+        RefreshKind::nothing().with_memory(MemoryRefreshKind::nothing().with_ram()),
     );
     sys.refresh_memory();
     let avail = sys.available_memory();
@@ -115,10 +115,19 @@ impl Drop for PooledBuffer {
     }
 }
 
+/// Shared memory map exposing its bytes through `AsRef<[u8]>` for `Cursor`.
+pub struct SharedMmap(Arc<Mmap>);
+
+impl AsRef<[u8]> for SharedMmap {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 /// Adaptive read source: uses `memmap2::Mmap` for large regular files (`>= 8 MiB`) and
 /// falls back cleanly to standard file descriptors for small/locked/special files.
 pub enum SmartFileReader {
-    Mapped(Cursor<Arc<Mmap>>),
+    Mapped(Cursor<SharedMmap>),
     Buffered(io::BufReader<File>),
     Empty,
 }
@@ -133,7 +142,7 @@ impl SmartFileReader {
         if len >= MMAP_THRESHOLD_BYTES {
             // SAFETY: Read-only mapping; falls back to buffered File I/O if OS rejects mmap.
             if let Ok(mmap) = unsafe { Mmap::map(&file) } {
-                return Ok((Self::Mapped(Cursor::new(Arc::new(mmap))), len));
+                return Ok((Self::Mapped(Cursor::new(SharedMmap(Arc::new(mmap)))), len));
             }
         }
         Ok((Self::Buffered(io::BufReader::with_capacity(IO_BUF_SIZE, file)), len))

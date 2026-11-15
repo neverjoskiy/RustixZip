@@ -556,6 +556,10 @@ impl StreamCheckpointIndex {
         }
     }
 
+    pub fn entry_header_offset(&self, entry_index: usize) -> Option<u64> {
+        self.entry_spans.get(entry_index).map(|&(header_off, _, _)| header_off)
+    }
+
     pub fn entry_payload_span(&self, entry_index: usize) -> Option<(u64, u64)> {
         self.entry_spans
             .get(entry_index)

@@ -14,7 +14,7 @@ pub mod vfs;
 pub mod watcher;
 
 pub use backends::collect_pack_inputs;
-pub use checksum::{hash_bytes, hash_file, hash_files_parallel, ChecksumReport};
+pub use checksum::{hash_bytes, hash_file, ChecksumReport};
 pub use engine::{
     ArchiveEngine, ArchiveSourceStream, BreadcrumbSegment, EnterOutcome, MountLayer, OpenArchive,
     VfsMountStack,
@@ -29,7 +29,7 @@ pub use types::{
     OverwritePolicy, PackInput, PackOptions, ZipCompressionMethod,
 };
 pub use vfs::{
-    NestedBacking, NodeFlags, NodeId, SortColumn, StrRef, StreamCheckpoint, StreamCheckpointIndex,
+    NestedBacking, NodeId, SortColumn, StrRef, StreamCheckpoint, StreamCheckpointIndex,
     StringArena, VfsNode, VfsTree,
 };
 pub use watcher::{LiveEditEvent, LiveEditSession};

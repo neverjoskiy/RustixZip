@@ -114,7 +114,7 @@ fn format_method_name(m: CompressionMethod) -> &'static str {
     }
 }
 
-fn convert_zip_file(index: usize, zf: &zip::read::ZipFile<'_>) -> Option<ArchiveEntry> {
+fn convert_zip_file<R: Read>(index: usize, zf: &zip::read::ZipFile<'_, R>) -> Option<ArchiveEntry> {
     let raw_name = zf.name();
     let is_dir = zf.is_dir() || raw_name.ends_with('/') || raw_name.ends_with('\\');
     let clean = sanitize_archive_path(raw_name)?;
@@ -316,33 +316,23 @@ pub fn read_entry_bytes<R: Read + Seek>(
 }
 
 fn select_zip_method_and_level(options: &PackOptions) -> (CompressionMethod, Option<i64>) {
-    if options.compression_level == 0 {
+    if options.level == 0 {
         return (CompressionMethod::Stored, None);
     }
-    let method_hint = options
-        .method
-        .as_deref()
-        .unwrap_or("deflate")
-        .to_ascii_lowercase();
-    match method_hint.as_str() {
-        "store" | "stored" | "copy" => (CompressionMethod::Stored, None),
-        "zstd" => (
-            CompressionMethod::Zstd,
-            Some(i64::from(options.compression_level.clamp(1, 22))),
-        ),
-        "xz" => (
-            CompressionMethod::Xz,
-            Some(i64::from(options.compression_level.clamp(1, 9))),
-        ),
-        "bzip2" | "bz2" => (
-            CompressionMethod::Bzip2,
-            Some(i64::from(options.compression_level.clamp(1, 9))),
-        ),
-        _ => (
-            CompressionMethod::Deflated,
-            Some(i64::from(options.compression_level.clamp(1, 9))),
-        ),
-    }
+    let method_hint = options.zip_method;
+    let method = match method_hint {
+        crate::types::ZipCompressionMethod::Stored => CompressionMethod::Stored,
+        crate::types::ZipCompressionMethod::Deflate => CompressionMethod::Deflated,
+        crate::types::ZipCompressionMethod::Zstd => CompressionMethod::Zstd,
+        crate::types::ZipCompressionMethod::Bzip2 => CompressionMethod::Bzip2,
+        crate::types::ZipCompressionMethod::Lzma => CompressionMethod::Lzma,
+    };
+    let level = if method == CompressionMethod::Stored {
+        None
+    } else {
+        Some(i64::from(options.level.clamp(1, 9)))
+    };
+    (method, level)
 }
 
 fn build_file_options(

@@ -258,7 +258,7 @@ impl VfsMountStack {
             let node = top.archive.vfs.node(node_id);
             (
                 node.is_dir(),
-                node.backend_index(),
+                node.entry_index(),
                 top.archive.vfs.node_name(node_id).to_string(),
                 top.archive.vfs.full_path(node_id),
             )
@@ -731,7 +731,8 @@ impl ArchiveEngine {
             ),
             _ => {
                 let plugins = self.plugins.read();
-                let mut sink = DiskExtractSink::new(dest_dir, &effective_opts, test_only, progress);
+                use std::cell::RefCell;
+                let sink = RefCell::new(DiskExtractSink::new(dest_dir, &effective_opts, test_only, progress));
                 plugins.extract_entries(
                     archive.format,
                     &mut stream,
@@ -741,9 +742,9 @@ impl ArchiveEngine {
                     effective_opts.selected_indices.as_deref(),
                     test_only,
                     control,
-                    |entry| sink.begin_entry(entry),
-                    |chunk| sink.write_chunk(chunk),
-                    |_idx| sink.finish_entry(),
+                    |entry| sink.borrow_mut().begin_entry(entry),
+                    |chunk| sink.borrow_mut().write_chunk(chunk),
+                    |_idx| sink.borrow_mut().finish_entry(),
                 )
             }
         }

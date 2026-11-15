@@ -207,7 +207,7 @@ pub fn list_entries<R: Read + Seek>(
 ) -> Result<(Vec<ArchiveEntry>, StreamCheckpointIndex)> {
     let mut checkpoints = StreamCheckpointIndex::default();
 
-    if format.is_single_stream() {
+    if format.is_single_file_stream() {
         let mtime = None;
         let inner_name = single_stream_inner_name(archive_display_name, format);
         // Probe unpacked size cheaply for `.gz` (ISIZE trailer) or Zstd frame header when available;
@@ -228,7 +228,7 @@ pub fn list_entries<R: Read + Seek>(
             is_encrypted: false,
             method: format.display_name().to_string(),
         };
-        checkpoints.record(0, 0, 0);
+        checkpoints.record_entry(0, 0, 0, unpacked, None);
         return Ok((vec![entry], checkpoints));
     }
 
@@ -246,7 +246,8 @@ pub fn list_entries<R: Read + Seek>(
         }
         let item = item_res?;
         let raw_header_pos = item.raw_header_position();
-        checkpoints.maybe_record_periodic(raw_header_pos, raw_header_pos, raw_idx);
+        let payload_offset = raw_header_pos.saturating_add(512);
+        checkpoints.record_entry(raw_idx, raw_header_pos, payload_offset, item.size(), None);
 
         let path_cow = item.path()?;
         let Some(clean_path) = sanitize_archive_path(&path_cow.to_string_lossy()) else {
@@ -320,7 +321,7 @@ pub fn extract_or_test<R: Read + Seek>(
 ) -> Result<()> {
     reader.seek(io::SeekFrom::Start(0))?;
 
-    if format.is_single_stream() {
+    if format.is_single_file_stream() {
         let selection = build_selection_set(options);
         if let Some(sel) = &selection {
             if !sel.contains(&0) {
@@ -472,7 +473,7 @@ pub fn read_entry_bytes<R: Read + Seek>(
 ) -> Result<Vec<u8>> {
     reader.seek(io::SeekFrom::Start(0))?;
 
-    if format.is_single_stream() {
+    if format.is_single_file_stream() {
         if target_index != 0 {
             return Err(ArchiveError::EntryNotFound(format!("index {target_index}")));
         }
@@ -484,9 +485,9 @@ pub fn read_entry_bytes<R: Read + Seek>(
     let mut start_idx = 0usize;
     if format == ArchiveFormat::Tar {
         if let Some(cp_idx) = checkpoints {
-            if let Some(cp) = cp_idx.nearest_before_entry(target_index) {
-                if reader.seek(io::SeekFrom::Start(cp.compressed_offset)).is_ok() {
-                    start_idx = cp.first_entry_index;
+            if let Some(header_offset) = cp_idx.entry_header_offset(target_index) {
+                if reader.seek(io::SeekFrom::Start(header_offset)).is_ok() {
+                    start_idx = target_index;
                 }
             }
         }
@@ -563,9 +564,9 @@ pub fn pack_entries<W: Write>(
     } else {
         options.threads.max(1)
     };
-    let level = options.compression_level;
+    let level = options.level;
 
-    if options.format.is_single_stream() {
+    if options.format.is_single_file_stream() {
         let file_inputs: Vec<&PackInput> = inputs
             .iter()
             .filter(|inp| inp.disk_path.is_file())
@@ -677,7 +678,7 @@ where
     }
 }
 
-fn write_tar_payload<W: Write>(
+fn write_tar_payload<W: Write + ?Sized>(
     writer: &mut W,
     inputs: &[PackInput],
     pool: &BufferPool,

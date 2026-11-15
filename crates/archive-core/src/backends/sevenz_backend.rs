@@ -323,7 +323,7 @@ pub fn pack_entries<W: Write + Seek>(
     let mut writer =
         SevenZWriter::new(dest).map_err(|e| map_sevenz_error(e, options.password.is_some()))?;
 
-    let level = options.compression_level.clamp(0, 9);
+    let level = options.level.clamp(0, 9);
     let mut methods: Vec<SevenZMethodConfiguration> = Vec::new();
 
     if let Some(pw) = options.password.as_deref() {
