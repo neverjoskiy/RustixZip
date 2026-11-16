@@ -171,7 +171,7 @@ pub fn extract_or_test<R: Read + Seek>(
     control: Option<&TaskControl>,
     progress: Option<&ProgressTracker>,
 ) -> Result<()> {
-    let password = options.password.as_deref().map(String::as_str);
+    let password = options.password.as_deref().map(|s| s.as_str()).map(String::as_str);
     let had_pw = password.is_some_and(|s| !s.is_empty());
     let mut archive = ZipArchive::new(reader).map_err(|e| map_zip_error(e, had_pw))?;
     let selection = build_selection_set(options);
@@ -404,7 +404,7 @@ pub fn pack_entries<W: Write + Seek>(
         let (mtime, mode) = metadata_mtime_and_mode(&meta);
 
         if meta.is_dir() {
-            let dir_opts = build_file_options(0, mtime, mode, options.zip_method, options.level, options.password.as_deref())
+            let dir_opts = build_file_options(0, mtime, mode, options.zip_method, options.level, options.password.as_deref().map(|s| s.as_str()))
                 .compression_method(CompressionMethod::Stored)
                 .compression_level(None);
             main_writer
@@ -468,7 +468,7 @@ pub fn pack_entries<W: Write + Seek>(
                         if let Some(p) = progress {
                             p.set_current_item(virt_name);
                         }
-                        let fo = build_file_options(info.len, info.mtime, info.mode, options.zip_method, options.level, options.password.as_deref());
+                        let fo = build_file_options(info.len, info.mtime, info.mode, options.zip_method, options.level, options.password.as_deref().map(|s| s.as_str()));
                         sub_writer
                             .start_file(virt_name.clone(), fo)
                             .map_err(|e| map_zip_error(e, options.password.is_some()))?;
@@ -521,7 +521,7 @@ pub fn pack_entries<W: Write + Seek>(
             if let Some(p) = progress {
                 p.set_current_item(&virt_name);
             }
-            let fo = build_file_options(info.len, info.mtime, info.mode, options.zip_method, options.level, options.password.as_deref());
+            let fo = build_file_options(info.len, info.mtime, info.mode, options.zip_method, options.level, options.password.as_deref().map(|s| s.as_str()));
             main_writer
                 .start_file(virt_name, fo)
                 .map_err(|e| map_zip_error(e, options.password.is_some()))?;
