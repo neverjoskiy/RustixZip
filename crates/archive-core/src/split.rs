@@ -204,11 +204,7 @@ impl SplitVolumeWriter {
 
         let target_path = if self.volume_size.is_some() {
             let base = self.base_path.to_string_lossy();
-            let stripped = if base.ends_with(".001") {
-                &base[..base.len() - 4]
-            } else {
-                base.as_ref()
-            };
+            let stripped = base.strip_suffix(".001").unwrap_or(base.as_ref());
             PathBuf::from(format!("{stripped}.{:03}", self.current_vol_index))
         } else {
             self.base_path.clone()
