@@ -18,7 +18,7 @@ use crate::error::{ArchiveError, Result};
 use crate::memory::{BufferPool, SmartFileReader};
 use crate::progress::{ProgressTracker, TaskControl};
 use crate::types::{
-    sanitize_archive_path, ArchiveEntry, ExtractOptions, PackInput, PackOptions,
+    sanitize_archive_path, ArchiveEntry, ExtractOptions, PackInput, PackOptions, ZipCompressionMethod,
 };
 
 fn map_zip_error(err: ZipError, had_password: bool) -> ArchiveError {
@@ -315,14 +315,14 @@ pub fn read_entry_bytes<R: Read + Seek>(
     Ok(out)
 }
 
-fn build_file_options<'p>(
+fn build_file_options(
     file_size: u64,
     mtime_secs: Option<i64>,
     unix_mode: Option<u32>,
     method: ZipCompressionMethod,
     level: u8,
-    password: Option<&'p str>,
-) -> SimpleFileOptions<'p> {
+    password: Option<&str>,
+) -> SimpleFileOptions {
     let (compression_method, compression_level) = match method {
         ZipCompressionMethod::Stored => (CompressionMethod::Stored, None),
         ZipCompressionMethod::Deflate => (CompressionMethod::Deflated, Some(i64::from(level.clamp(1, 9)))),
@@ -347,7 +347,8 @@ fn build_file_options<'p>(
         }
     }
     if let Some(pw) = password.filter(|s| !s.is_empty()) {
-        fo = fo.with_aes_encryption(AesMode::Aes256, pw);
+        let leaked: &'static str = Box::leak(pw.to_string().into_boxed_str());
+        fo = fo.with_aes_encryption(AesMode::Aes256, leaked);
     }
     fo
 }
