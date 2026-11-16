@@ -772,8 +772,7 @@ impl ArchiveEngine {
             ArchiveFormat::SevenZip => {
                 let entry_path = archive
                     .entries
-                    .iter()
-                    .find(|e| e.index == entry_index)
+                    .get(entry_index)
                     .map(|e| e.path.clone())
                     .unwrap_or_default();
                 sevenz_backend::read_entry_bytes(

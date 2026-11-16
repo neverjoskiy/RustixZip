@@ -246,10 +246,7 @@ pub fn read_entry_bytes<R: Read + Seek>(
 
     let res = sz_reader.for_each_entries(|sz_entry, content_reader| {
         let sz_path = sanitize_archive_path(sz_entry.name()).unwrap_or_default();
-        let matches = sz_path == target_path
-            || (!target_path.is_empty() && sz_path.ends_with(target_path))
-            || (!sz_path.is_empty() && target_path.ends_with(&sz_path));
-        if !matches {
+        if sz_path != target_path {
             return Ok(true);
         }
         found = true;
