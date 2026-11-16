@@ -769,13 +769,20 @@ impl ArchiveEngine {
         let (mut stream, total_len, disk_path) = archive.open_stream()?;
 
         match archive.format {
-            ArchiveFormat::SevenZip => sevenz_backend::read_entry_bytes(
-                &mut stream,
-                entry_index,
-                max_bytes,
-                effective_pw,
-                control,
-            ),
+            ArchiveFormat::SevenZip => {
+                let entry_path = archive
+                    .entries
+                    .get(entry_index)
+                    .map(|e| e.path.clone())
+                    .unwrap_or_default();
+                sevenz_backend::read_entry_bytes(
+                    &mut stream,
+                    &entry_path,
+                    max_bytes,
+                    effective_pw,
+                    control,
+                )
+            }
             ArchiveFormat::Zip => zip_backend::read_entry_bytes(
                 &mut stream,
                 entry_index,

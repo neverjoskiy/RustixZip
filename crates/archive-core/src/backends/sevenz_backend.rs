@@ -231,8 +231,8 @@ pub fn extract_or_test<R: Read + Seek>(
 /// Reads a single `.7z` entry into memory (used for `F3` preview, live-edit staging, and nested archives).
 pub fn read_entry_bytes<R: Read + Seek>(
     reader: R,
-    target_index: usize,
-    max_bytes: Option< usize >,
+    target_path: &str,
+    max_bytes: Option<usize>,
     password: Option<&str>,
     control: Option<&TaskControl>,
 ) -> Result<Vec<u8>> {
@@ -240,17 +240,13 @@ pub fn read_entry_bytes<R: Read + Seek>(
     let mut sz_reader = SevenZReader::new(reader, make_password(password))
         .map_err(|e| map_sevenz_error(e, had_pw))?;
 
-    let target_name = {
-        let archive = sz_reader.archive();
-        archive.files.get(target_index).map(|e| e.name().to_string())
-    };
-
     let mut out = Vec::new();
     let mut found = false;
     let mut host_err: Option<ArchiveError> = None;
 
     let res = sz_reader.for_each_entries(|sz_entry, content_reader| {
-        if target_name.as_deref() != Some(sz_entry.name()) {
+        let sz_path = sanitize_archive_path(sz_entry.name()).unwrap_or_default();
+        if sz_path != target_path {
             return Ok(true);
         }
         found = true;
@@ -286,7 +282,7 @@ pub fn read_entry_bytes<R: Read + Seek>(
     }
     res.map_err(|e| map_sevenz_error(e, had_pw))?;
     if !found {
-        return Err(ArchiveError::EntryNotFound(format!("index {target_index}")));
+        return Err(ArchiveError::EntryNotFound(format!("path {target_path}")));
     }
     Ok(out)
 }
