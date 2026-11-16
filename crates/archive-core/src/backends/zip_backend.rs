@@ -171,7 +171,7 @@ pub fn extract_or_test<R: Read + Seek>(
     control: Option<&TaskControl>,
     progress: Option<&ProgressTracker>,
 ) -> Result<()> {
-    let password = options.password.as_deref().map(|s| s.as_str()).map(String::as_str);
+    let password = options.password.as_deref().map(|s| s.as_str());
     let had_pw = password.is_some_and(|s| !s.is_empty());
     let mut archive = ZipArchive::new(reader).map_err(|e| map_zip_error(e, had_pw))?;
     let selection = build_selection_set(options);
