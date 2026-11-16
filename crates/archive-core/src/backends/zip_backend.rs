@@ -552,6 +552,7 @@ pub fn pack_entries<W: Write + Seek>(
 
 /// Fast zero-recompression `.zip` mutation: copies all untouched entries via `raw_copy_file`,
 /// skips any paths in `remove_virtual_paths`, and appends `additions` (used for Add, Delete, and Live-Edit).
+#[allow(clippy::too_many_arguments)]
 pub fn modify_zip_archive<R: Read + Seek, W: Write + Seek>(
     existing_reader: R,
     dest_writer: W,
