@@ -240,15 +240,17 @@ pub fn read_entry_bytes<R: Read + Seek>(
     let mut sz_reader = SevenZReader::new(reader, make_password(password))
         .map_err(|e| map_sevenz_error(e, had_pw))?;
 
+    let target_name = {
+        let archive = sz_reader.archive();
+        archive.files.get(target_index).map(|e| e.name().to_string())
+    };
+
     let mut out = Vec::new();
     let mut found = false;
     let mut host_err: Option<ArchiveError> = None;
-    let mut raw_idx = 0usize;
 
     let res = sz_reader.for_each_entries(|sz_entry, content_reader| {
-        let current_idx = raw_idx;
-        raw_idx += 1;
-        if current_idx != target_index {
+        if target_name.as_deref() != Some(sz_entry.name()) {
             return Ok(true);
         }
         found = true;
